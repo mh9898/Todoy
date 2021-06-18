@@ -10,26 +10,51 @@ import UIKit
 class TodoyTableViewController: UIViewController {
     
 //    var item = Item()
-    var todos = [Item(title: "apple", done: true), Item(title: "banana", done: false), Item(title: "pear", done: false)]
+//    var todos = [Item(title: "apple", done: true), Item(title: "banana", done: false), Item(title: "pear", done: false)]
+    var todos = [Item]()
+    
+    let filePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
     
     @IBOutlet weak var tableView: UITableView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        configureTodos()
+        getItemsFromFile()
         configureTableView()
     }
     
-    func configureTodos(){
-        
+    func getItemsFromFile(){
+        if let data = try? Data(contentsOf: filePath!){
+            let decoder = PropertyListDecoder()
+            do {
+              todos = try decoder.decode([Item].self, from: data)
+            } catch  {
+                print("error item in decoding", error)
+            }
+        }
     }
-
-
+    
     func configureTableView(){
         tableView.delegate = self
         tableView.dataSource = self
     }
 
+    
+    fileprivate func addItemToFile() {
+        //add the item to the plist
+        let encoder = PropertyListEncoder()
+        
+        do {
+            let data = try encoder.encode(self.todos)
+            try data.write(to: self.filePath!)
+        } catch  {
+            print("error encoding item array")
+        }
+        
+        DispatchQueue.main.async {
+            self.tableView.reloadData()
+        }
+    }
     
     @IBAction func addNewItem(_ sender: UIBarButtonItem) {
         
@@ -42,12 +67,8 @@ class TodoyTableViewController: UIViewController {
                 let newItem = Item(title: title , done: false)
                 self.todos.append(newItem)
                 
-                //add the item to the plist
-                let encoder = PropertyListEncoder()
-                
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
+                self.addItemToFile()
+                self.getItemsFromFile()
             }
         }
         
@@ -64,10 +85,13 @@ class TodoyTableViewController: UIViewController {
 
 extension TodoyTableViewController: UITableViewDelegate{
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
         todos[indexPath.row].done.toggle()
-        DispatchQueue.main.async {
-            tableView.reloadData()
-        }
+        
+        addItemToFile()
+        getItemsFromFile()
+
+        tableView.deselectRow(at: indexPath, animated: true)
     }
 }
 
